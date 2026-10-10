@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y valgrind
+          pip install -r requirements.txt
+      - name: Build C executable (strict ANSI C, warnings are errors)
+        run: make
+      - name: Build Python extension
+        run: make ext
+      - name: Run tests
+        run: python -m pytest -v tests
+      - name: Check for memory leaks
+        run: |
+          for goal in sym ddg norm; do
+            valgrind --leak-check=full --error-exitcode=1 ./symnmf $goal examples/blobs_k4_d2.txt > /dev/null
+          done
